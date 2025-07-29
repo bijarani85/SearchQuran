@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <title>SearchQuran App</title>
+  <style>
+    body { font-family: sans-serif; direction: rtl; text-align: right; padding: 20px; }
+    input, button { font-size: 1.2em; margin: 5px 0; }
+    #list1, #list2 { border: 1px solid #ccc; padding: 10px; max-height: 150px; overflow-y: auto; }
+    .popup {
+      position: fixed; top: 30%; right: 10%; background: #fff; border: 2px solid #444;
+      padding: 20px; display: none; z-index: 1000; width: 80%;
+    }
+    .popup button { margin-left: 10px; }
+    #overlay {
+      position: fixed; top: 0; right: 0; bottom: 0; left: 0;
+      background: rgba(0,0,0,0.3); display: none; z-index: 999;
+    }
+  </style>
+</head>
+<body>
+
+<h2>تطبيق البحث في القرآن</h2>
+<input type="text" id="searchbox" placeholder="ابحث...">
+<div id="list1"></div>
+<br>
+<label id="resultCount">عدد النتائج: 0</label>
+<div id="list2"></div>
+
+<div id="overlay"></div>
+<div class="popup" id="versePopup">
+  <div id="popupText"></div>
+  <br>
+  <button onclick="shareVerse()">مشاركة</button>
+  <button onclick="closePopup()">إغلاق</button>
+</div>
+
+<script>
+let indexData = [], verseData = {}, timer;
+
+// Load index.csv and verses.csv
+async function loadData() {
+  try {
+    const [indexRes, versesRes] = await Promise.all([
+      fetch('index.csv'),
+      fetch('verses.csv')
+    ]);
+    const indexText = await indexRes.text();
+    const versesText = await versesRes.text();
+
+    indexData = indexText.trim().split('\\n').map(line => line.split(','));
+    versesText.trim().split('\\n').forEach(line => {
+      const [ref, ...verseParts] = line.split(',');
+      const verse = verseParts.join(','); // Fix: Join if verse contains commas
+      verseData[ref.trim()] = verse.trim();
+    });
+  } catch (err) {
+    alert('حدث خطأ أثناء تحميل البيانات: ' + err.message);
+  }
+}
+
+function onSearchInput(e) {
+  clearTimeout(timer);
+  timer = setTimeout(() => handleSearch(e.target.value.trim()), 300);
+}
+
+function handleSearch(input) {
+  if (input === '') {
+    document.getElementById('list1').innerHTML = '';
+    return;
+  }
+  const matches = indexData.filter(row => row[0].startsWith(input));
+  const suggestions = matches.map(row => `<div onclick="selectSuggestion('${row[1]}')">${row[1]}</div>`);
+  document.getElementById('list1').innerHTML = suggestions.join('');
+}
+
+function selectSuggestion(wordWithHarakaat) {
+  document.getElementById('searchbox').value = wordWithHarakaat;
+  document.getElementById('list1').innerHTML = '';
+
+  const row = indexData.find(r => r[1] === wordWithHarakaat);
+  if (!row) return;
+
+  const references = row[2].split('@');
+  document.getElementById('resultCount').textContent = 'عدد النتائج: ' + references.length;
+
+  const refsHtml = references.map(ref => `<div onclick="showVerse('${ref}')">${ref}</div>`);
+  document.getElementById('list2').innerHTML = refsHtml.join('');
+}
+
+function showVerse(ref) {
+  const verse = verseData.hasOwnProperty(ref) ? verseData[ref] : null;
+  const textToShow = verse ? (ref + "\\n" + verse) : (ref + "\\n" + 'الآية غير موجودة');
+  document.getElementById('popupText').textContent = textToShow;
+  document.getElementById('versePopup').style.display = 'block';
+  document.getElementById('overlay').style.display = 'block';
+}
+
+function closePopup() {
+  document.getElementById('versePopup').style.display = 'none';
+  document.getElementById('overlay').style.display = 'none';
+}
+
+function shareVerse() {
+  const text = document.getElementById('popupText').textContent;
+  if (navigator.share) {
+    navigator.share({ text });
+  } else {
+    alert('نسخ المشاركة غير مدعوم على هذا المتصفح');
+  }
+}
+
+document.getElementById('searchbox').addEventListener('input', onSearchInput);
+loadData();
+</script>
+
+</body>
+</html>
