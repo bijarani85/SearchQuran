@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <title>Search Quran App</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      direction: rtl;
+      text-align: right;
+      padding: 20px;
+      background: #f8f8f8;
+    }
+    input, ul {
+      width: 100%;
+      margin-top: 10px;
+    }
+    input {
+      padding: 10px;
+      font-size: 16px;
+    }
+    ul {
+      list-style: none;
+      padding: 0;
+    }
+    li {
+      background: white;
+      margin-bottom: 5px;
+      padding: 10px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    #count {
+      margin: 10px 0;
+      font-weight: bold;
+    }
+    #popup {
+      display: none;
+      position: fixed;
+      top: 20%;
+      left: 10%;
+      right: 10%;
+      background: white;
+      padding: 20px;
+      border: 2px solid #ccc;
+      border-radius: 10px;
+      box-shadow: 0 0 10px #999;
+      z-index: 1000;
+    }
+    #popup button {
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>تلاشی قرآن</h2>
+  <input type="text" id="searchBox" placeholder="تلاش کریں..." />
+  <ul id="suggestionList"></ul>
+  <div id="count"></div>
+  <ul id="referenceList"></ul>
+
+  <div id="popup">
+    <div id="popupText"></div>
+    <button onclick="closePopup()">بند کریں</button>
+  </div>
+
+  <!-- Load data -->
+  <script src="data/index.js"></script>
+  <script src="data/verses.js"></script>
+
+  <script>
+    const searchBox = document.getElementById("searchBox");
+    const suggestionList = document.getElementById("suggestionList");
+    const referenceList = document.getElementById("referenceList");
+    const countLabel = document.getElementById("count");
+    const popup = document.getElementById("popup");
+    const popupText = document.getElementById("popupText");
+
+    let debounceTimer;
+
+    searchBox.addEventListener("input", () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(onSearchTextChanged, 300);
+    });
+
+    function onSearchTextChanged() {
+      const input = searchBox.value.trim();
+      if (!input) {
+        suggestionList.innerHTML = "";
+        return;
+      }
+
+      // Match against column 0 (words without harakaat)
+      const suggestions = indexData.filter(row => row[0].startsWith(input)).map(row => row[1]);
+      suggestionList.innerHTML = "";
+      suggestions.forEach(word => {
+        const li = document.createElement("li");
+        li.textContent = word;
+        li.addEventListener("click", () => onSuggestionSelected(word));
+        suggestionList.appendChild(li);
+      });
+    }
+
+    function onSuggestionSelected(selectedWord) {
+      searchBox.value = selectedWord;
+      suggestionList.innerHTML = "";
+
+      // Get all references for selected word
+      const row = indexData.find(r => r[1] === selectedWord);
+      if (!row) return;
+
+      const references = row[2].split("@");
+      countLabel.textContent = `نتائج: ${references.length}`;
+      referenceList.innerHTML = "";
+
+      references.forEach(ref => {
+        const li = document.createElement("li");
+        li.textContent = ref;
+        li.addEventListener("click", () => showFullVerse(ref));
+        referenceList.appendChild(li);
+      });
+    }
+
+    function showFullVerse(ref) {
+      const row = versesData.find(r => r[0] === ref);
+      popupText.innerHTML = row ? `<strong>${ref}</strong><br>${row[1]}` : "آیت نہیں ملی";
+      popup.style.display = "block";
+    }
+
+    function closePopup() {
+      popup.style.display = "none";
+    }
+  </script>
+
+</body>
+</html>
